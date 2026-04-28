@@ -1,11 +1,12 @@
-name: Deploy to Surge
+name: Deploy NHApp Web to Surge
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +20,7 @@ jobs:
       
       - uses: dswistowski/surge-sh-action@v1
         with:
-          domain: 'mmnhapp.surge.sh'
+          domain: 'nhapp-test.surge.sh'
           project_dir: './dist'
           login: ${{ secrets.SURGE_LOGIN }}
           token: ${{ secrets.SURGE_TOKEN }}
