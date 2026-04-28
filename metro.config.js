@@ -1,60 +1,39 @@
-// metro.config.js - Fixed for Node.js 18/20 compatibility
+// metro.config.js
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 
-// CRITICAL: Polyfill must be at the VERY TOP
+// Polyfill for toReversed - MUST be before any config loading
 if (!Array.prototype.toReversed) {
   Array.prototype.toReversed = function() {
-    return [...this].reverse();
-  };
-}
-
-// Also polyfill for any other missing methods
-if (!Array.prototype.toSpliced) {
-  Array.prototype.toSpliced = function(start, deleteCount, ...items) {
     const copy = [...this];
-    copy.splice(start, deleteCount, ...items);
+    copy.reverse();
     return copy;
   };
 }
 
-// Create default config
-let config = getDefaultConfig(__dirname, {
-  isCSSEnabled: true,
-});
+// Get default config
+const config = getDefaultConfig(__dirname);
 
 // Configure transformer
-config.transformer = {
-  ...config.transformer,
-  babelTransformerPath: path.resolve(__dirname, 'metro-css-transformer-wrapper.js'),
-};
+config.transformer.babelTransformerPath = path.resolve(__dirname, 'metro-css-transformer-wrapper.js');
 
-// Configure resolver (remove iOS)
-const defaultResolveRequest = config.resolver.resolveRequest;
+// Configure resolver - remove iOS
+config.resolver.sourceExts.push('css');
+config.resolver.platforms = ['android', 'native', 'web'];
 
-config.resolver = {
-  ...config.resolver,
-  sourceExts: [...config.resolver.sourceExts, 'css'],
-  platforms: ['android', 'native', 'web'],
-  extraNodeModules: {
-    'react-native/Libraries/Utilities/codegenNativeCommands': require.resolve('./InternalBytecode.js'),
-  },
-  resolveRequest: (context, moduleName, platform) => {
-    if (platform === 'web' && moduleName === 'react-native-worklets') {
-      return {
-        type: 'sourceFile',
-        filePath: path.resolve(__dirname, 'worklets.web.js'),
-      };
-    }
-    if (defaultResolveRequest) {
-      try {
-        return defaultResolveRequest(context, moduleName, platform);
-      } catch (e) {
-        // Fall through to default
-      }
-    }
-    return context.resolveRequest(context, moduleName, platform);
-  },
+// Handle worklets for web
+const originalResolveRequest = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (platform === 'web' && moduleName === 'react-native-worklets') {
+    return {
+      type: 'sourceFile',
+      filePath: path.resolve(__dirname, 'worklets.web.js'),
+    };
+  }
+  if (originalResolveRequest) {
+    return originalResolveRequest(context, moduleName, platform);
+  }
+  return context.resolveRequest(context, moduleName, platform);
 };
 
 module.exports = config;
