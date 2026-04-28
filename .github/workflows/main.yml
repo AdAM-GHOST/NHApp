@@ -1,0 +1,25 @@
+name: Deploy to Surge
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          
+      - run: npm install
+      - run: npm run build:web
+      
+      - uses: dswistowski/surge-sh-action@v1
+        with:
+          domain: 'mmnhapp.surge.sh'
+          project_dir: './dist'
+          login: ${{ secrets.SURGE_LOGIN }}
+          token: ${{ secrets.SURGE_TOKEN }}
