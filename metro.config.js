@@ -1,35 +1,41 @@
+// metro.config.js - Fixed for Node.js 18/20 compatibility
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 
-// ===== FIX: Polyfill for toReversed (for Node.js < 20) =====
+// CRITICAL: Polyfill must be at the VERY TOP
 if (!Array.prototype.toReversed) {
   Array.prototype.toReversed = function() {
     return [...this].reverse();
   };
 }
-// =========================================================
 
-const config = getDefaultConfig(__dirname, {
+// Also polyfill for any other missing methods
+if (!Array.prototype.toSpliced) {
+  Array.prototype.toSpliced = function(start, deleteCount, ...items) {
+    const copy = [...this];
+    copy.splice(start, deleteCount, ...items);
+    return copy;
+  };
+}
+
+// Create default config
+let config = getDefaultConfig(__dirname, {
   isCSSEnabled: true,
 });
 
+// Configure transformer
 config.transformer = {
   ...config.transformer,
   babelTransformerPath: path.resolve(__dirname, 'metro-css-transformer-wrapper.js'),
-  getTransformOptions: async () => ({
-    transform: {
-      experimentalImportSupport: false,
-      inlineRequires: true,
-    },
-  }),
 };
 
+// Configure resolver (remove iOS)
 const defaultResolveRequest = config.resolver.resolveRequest;
 
 config.resolver = {
   ...config.resolver,
   sourceExts: [...config.resolver.sourceExts, 'css'],
-  platforms: ['android', 'native', 'web'],   // 'ios' ကိုဖျက်ပါ
+  platforms: ['android', 'native', 'web'],
   extraNodeModules: {
     'react-native/Libraries/Utilities/codegenNativeCommands': require.resolve('./InternalBytecode.js'),
   },
@@ -37,14 +43,14 @@ config.resolver = {
     if (platform === 'web' && moduleName === 'react-native-worklets') {
       return {
         type: 'sourceFile',
-        filePath: require.resolve('./worklets.web.js'),
+        filePath: path.resolve(__dirname, 'worklets.web.js'),
       };
     }
     if (defaultResolveRequest) {
       try {
         return defaultResolveRequest(context, moduleName, platform);
       } catch (e) {
-        // ignore
+        // Fall through to default
       }
     }
     return context.resolveRequest(context, moduleName, platform);
